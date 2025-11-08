@@ -1,36 +1,68 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Token Metrics Indices & Indicators Viewer
 
-## Getting Started
+This is a small production-style Next.js app built for the Token Metrics Crypto Full-Stack Developer Intern take-home.
 
-First, run the development server:
+It demonstrates:
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+- Listing key items derived from **Indices** and **Indicators** (using the public `/v2/tokens` endpoint).
+- A **30-day detail view** for each item via a dedicated **server-side API route**.
+- All external calls done **server-side with API keys in env**, never in the client.
+- **Caching (90s)** and **rate limiting** to respect plan limits (20 req/min, 500 calls/month).
+- An architecture that can be **swapped to the paid Indices APIs** with minimal code changes.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+---
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Tech Stack
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- **Framework:** Next.js 16 (App Router)
+- **Language:** TypeScript
+- **Runtime:** Node.js ≥ 20.9.0
+- **Data Source:** Token Metrics public API (`/v2/tokens`)
+- **Patterns:** Server-side routes, env-based secrets, in-memory cache, soft rate limiting, simple SVG chart
 
-## Learn More
+---
 
-To learn more about Next.js, take a look at the following resources:
+## App Overview
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Home (`/`)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+The home page shows two sections:
 
-## Deploy on Vercel
+- **Indices**  
+  - Data from `GET /api/indices`
+  - Derived from top market cap tokens via `/v2/tokens`
+  - Each item links to a 30-day detail view at `/item/[id]`
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- **Indicators**  
+  - Data from `GET /api/indicators`
+  - Derived from largest absolute 24h movers via `/v2/tokens`
+  - Uses the same internal structure and can share the same detail view route
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Both sections are read-only views backed by server-side routes that handle caching and rate limiting.
+
+---
+
+### 30-Day Detail View (`/item/[id]`)
+
+For any selected item:
+
+1. The page calls **`/api/item/[id]`** on the **server**, not directly from the browser.
+2. The API route:
+   - Fetches the token using `/v2/tokens?token_id=...` via the shared `apiClient`.
+   - Generates a synthetic 30-day time series based on:
+     - Current price
+     - 24h percentage change
+     - Small deterministic variations for readability
+3. Returns data in the form:
+
+```json
+{
+  "id": "240",
+  "name": "Example Token",
+  "symbol": "EXT",
+  "series": [
+    { "t": "2025-10-08", "v": 1.2345 },
+    ...
+  ],
+  "note": "30-day curve generated from free /tokens snapshot. Swap to paid indices/history endpoints via this route."
+}

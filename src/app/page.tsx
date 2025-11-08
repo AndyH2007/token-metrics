@@ -1,66 +1,62 @@
-import Image from "next/image";
-import styles from "./page.module.css";
+"use client";
 
-export default function Home() {
+import { useEffect, useState } from "react";
+import ItemList from "@/components/ItemList";
+
+type ListResp = { items: { id: string; name: string; symbol?: string }[] };
+
+export default function HomePage() {
+  const [indices, setIndices] = useState<ListResp>({ items: [] });
+  const [indicators, setIndicators] = useState<ListResp>({ items: [] });
+  const [alive, setAlive] = useState<string>("—");
+
+  useEffect(() => {
+    (async () => {
+      const [a, b] = await Promise.all([
+        fetch("/api/indices").then((r) => r.json()),
+        fetch("/api/indicators").then((r) => r.json()),
+      ]);
+      setIndices(a);
+      setIndicators(b);
+    })();
+
+    // if keeping SSE
+    const es = new EventSource("/api/stream");
+    es.onmessage = (ev) => {
+      try {
+        const data = JSON.parse(ev.data);
+        if (data.at) setAlive(data.at);
+      } catch {}
+    };
+    return () => es.close();
+  }, []);
+
   return (
-    <div className={styles.page}>
-      <main className={styles.main}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className={styles.intro}>
-          <h1>To get started, edit the page.tsx file.</h1>
-          <p>
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className={styles.ctas}>
-          <a
-            className={styles.primary}
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className={styles.logo}
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className={styles.secondary}
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+    <main
+      style={{
+        maxWidth: 960,
+        margin: "40px auto",
+        padding: "0 16px",
+        fontFamily: "system-ui, sans-serif",
+        color: "#f5f5f5",
+        backgroundColor: "#000",
+      }}
+    >
+      <h1 style={{ fontSize: 48, fontWeight: 700 }}>Indices &amp; Indicators</h1>
+      <p style={{ color: "#888" }}>
+        Server freshness: <code>{alive}</code>
+      </p>
+
+      <section style={{ marginTop: 32 }}>
+        <h2>Indices (top tokens by market cap)</h2>
+        <ItemList items={indices.items} linkBase="/item" />
+      </section>
+
+      <section style={{ marginTop: 32 }}>
+  <h2>Indicators (24h movers)</h2>
+  <ItemList items={indicators.items} linkBase="/item" />
+</section>
+
+    </main>
   );
 }
